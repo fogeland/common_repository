@@ -1,0 +1,94 @@
+name: Nodejs Deploy to ECS
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to Deploy'
+        required: true
+        default: 'latest'
+      environment:
+        description: "Environment to deploy [test, acceptance]"
+        required: true
+        default: acceptance
+
+jobs:
+  deploy-params:
+    name: Setup deployment parameters
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Validate environment name
+      if:  github.event.inputs.environment != 'acceptance' && github.event.inputs.environment != 'test'
+      run: echo "::error Invalid environment name"; exit 1
+
+    - name: Calculate version to deploy
+      run: echo version_to_deploy=${{ github.event.inputs.version }} >> $GITHUB_ENV
+
+    - name: Calculate repository name
+      run: echo GIT_REPO_NAME=$(echo "$GITHUB_REPOSITORY" | awk -F / '{print $2}') >> $GITHUB_ENV
+
+    # Configure 'acceptance' environment
+    - name: Calculate params of environment
+      if: github.event.inputs.environment == 'acceptance'
+      run: |
+        echo access_key_name=AWS_ACCESS_KEY_ID >> $GITHUB_ENV
+        echo secret_access_key_name=AWS_SECRET_ACCESS_KEY >> $GITHUB_ENV
+        echo region=ap-southeast-2 >> $GITHUB_ENV
+
+    # Configure 'test' environment
+    - name: Calculate params of environment
+      if: github.event.inputs.environment == 'test'
+      run: |
+        echo access_key_name=TEST_AWS_ACCESS_KEY_ID >> $GITHUB_ENV
+        echo secret_access_key_name=TEST_AWS_SECRET_ACCESS_KEY >> $GITHUB_ENV
+        echo region=ap-southeast-2 >> $GITHUB_ENV
+
+    outputs:
+      access_key_name: ${{ env.access_key_name }}
+      secret_access_key_name: ${{ env.secret_access_key_name }}
+      version_to_deploy: ${{ env.version_to_deploy }}
+      git_repo_name: ${{ env.GIT_REPO_NAME }}
+      region: ${{ env.region }}
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: deploy-params
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets[needs.deploy-params.outputs.access_key_name] }}
+        aws-secret-access-key: ${{ secrets[needs.deploy-params.outputs.secret_access_key_name] }}
+        aws-region: ${{ needs.deploy-params.outputs.region }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Fill in the new image ID in the Amazon ECS task definition
+      id: task-def
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ needs.deploy-params.outputs.git_repo_name }}
+        IMAGE_TAG: ${{ needs.deploy-params.outputs.version_to_deploy }}
+
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: task-definition.json
+        container-name: ${{ needs.deploy-params.outputs.git_repo_name }}
+        image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+    - name: Deploy Amazon ECS task definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: ${{ needs.deploy-params.outputs.git_repo_name }}
+        cluster: app
+        wait-for-service-stability: true

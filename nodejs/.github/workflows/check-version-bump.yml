@@ -1,0 +1,19 @@
+name: "Fail if version of the app is not changed"
+
+on:
+  pull_request:
+    paths-ignore:
+    - '.github/**'
+
+
+jobs:
+  check-version-bump:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v2
+
+    - uses: avides/actions-project-version-check@v1.1.0
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        file-to-check: package.json

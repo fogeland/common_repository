@@ -1,0 +1,21 @@
+name: Build in new repo
+
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: my_action
+      uses: .
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        USER: fogeland
+        REPOSITORY: gcp
+        DEVELOPMENT_BRANCH: master
+        GHA_DEPLOYMENT_FOLDER: nodejs
+        COMMIT_MESSAGE: "Deploy new Github Action"
+        GHA_DEPLOY_BRANCH_NAME: master
