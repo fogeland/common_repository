@@ -6,6 +6,7 @@ set -x
 HEADER_AUTH_TOKEN="Authorization: token ${GITHUB_TOKEN}"
 HEADER_SHA="Accept: application/vnd.github.v3.sha"
 
+
 # Set new branch name
 if [ -z "$GHA_DEPLOY_BRANCH_NAME" ]; then
     GHA_DEPLOY_BRANCH_NAME="update_gha_source"

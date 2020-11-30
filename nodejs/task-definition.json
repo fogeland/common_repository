@@ -19,7 +19,7 @@
           "CMD-SHELL",
           "curl -f http://localhost:8080 || exit 1"
         ],
-        "timeout": 2,
+        "timeout": 3,
         "interval": 5,
         "startPeriod": 15
       },

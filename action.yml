@@ -1,6 +1,5 @@
 name: "Deploy Github Actions"
 description: "Deploy a common Github Action to a repo."
-author: "MikeHamilton-RW"
 inputs:
   GITHUB_TOKEN:
     description: "Github secret token to allow automated publishing of artifacts to a release."
